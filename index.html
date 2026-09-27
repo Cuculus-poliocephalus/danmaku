@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DANMAKU SHOOTER - SURVIVAL EDITION</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body {
+      background: #050508;
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #game-container {
+      position: relative;
+      width: 440px;
+      height: 640px;
+      border: 1px solid #1a1a2e;
+      border-radius: 12px;
+      background: #080810;
+      box-shadow: 0 0 50px rgba(0, 255, 204, 0.15);
+      overflow: hidden;
+    }
+    canvas { display: block; width: 100%; height: 100%; }
+    .ui-layer {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: rgba(8, 8, 16, 0.93);
+      backdrop-filter: blur(8px);
+      padding: 16px;
+      text-align: center;
+    }
+    .hidden { display: none !important; }
+    h1 {
+      font-size: 24px;
+      font-weight: 300;
+      letter-spacing: 6px;
+      margin-bottom: 2px;
+      color: #00ffcc;
+      text-shadow: 0 0 12px rgba(0,255,204,0.6);
+    }
+    .sub-title { font-size: 11px; color: #666688; margin-bottom: 16px; letter-spacing: 2px; }
+    
+    .diff-selector {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+      max-width: 300px;
+      margin-bottom: 14px;
+    }
+    .diff-btn {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid #333344;
+      color: #aaa;
+      padding: 8px 12px;
+      font-size: 11px;
+      letter-spacing: 2px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .diff-btn:hover, .diff-btn.active {
+      border-color: #00ffcc;
+      color: #ffffff;
+      background: rgba(0, 255, 204, 0.1);
+      box-shadow: 0 0 10px rgba(0,255,204,0.2);
+    }
+    .diff-btn.easy.active { border-color: #00ff88; color: #00ff88; }
+    .diff-btn.adv.active { border-color: #00ccff; color: #00ccff; }
+    .diff-btn.exp.active { border-color: #ffaa00; color: #ffaa00; }
+    .diff-btn.ult.active { border-color: #ff0055; color: #ff0055; background: rgba(255,0,85,0.1); }
+    .diff-btn.inf.active { 
+      border-color: #aa00ff; 
+      color: #ff00ff; 
+      background: rgba(170, 0, 255, 0.2);
+      text-shadow: 0 0 8px #ff00ff; 
+      box-shadow: 0 0 15px rgba(170,0,255,0.5);
+    }
+
+    .controls-hint {
+      font-size: 11px;
+      color: #777799;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+    .controls-hint span { color: #00ffcc; }
+
+    .start-btn {
+      background: #00ffcc;
+      color: #06060a;
+      border: none;
+      padding: 10px 42px;
+      font-size: 13px;
+      font-weight: bold;
+      letter-spacing: 3px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 0 15px rgba(0,255,204,0.4);
+    }
+    .start-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 25px rgba(0,255,204,0.8);
+    }
+
+    .result-title { font-size: 28px; font-weight: 300; margin-bottom: 6px; }
+    .clear { color: #00ffcc; text-shadow: 0 0 20px #00ffcc; }
+    .failed { color: #ff0055; text-shadow: 0 0 20px #ff0055; }
+
+    .shake { animation: shake 0.25s ease-in-out; }
+    @keyframes shake {
+      0%, 100% { transform: translate(0, 0); }
+      20% { transform: translate(-8px, 6px); }
+      40% { transform: translate(8px, -6px); }
+      60% { transform: translate(-5px, 3px); }
+      80% { transform: translate(5px, -3px); }
+    }
+  </style>
+</head>
+<body>
+
+<div id="game-container">
+  <canvas id="canvas" width="440" height="640"></canvas>
+  
+  <div id="ui" class="ui-layer">
+    <h1 id="ui-title">DANMAKU SURVIVAL</h1>
+    <div class="sub-title">SELECT DIFFICULTY</div>
+    
+    <div class="diff-selector">
+      <button class="diff-btn easy active" data-diff="easy">
+        <span>EASY</span><small>HP: 5 / TIME: 30s</small>
+      </button>
+      <button class="diff-btn adv" data-diff="adv">
+        <span>ADVANCED</span><small>HP: 3 / TIME: 40s</small>
+      </button>
+      <button class="diff-btn exp" data-diff="exp">
+        <span>EXPERT</span><small>HP: 3 / TIME: 50s</small>
+      </button>
+      <button class="diff-btn ult" data-diff="ult">
+        <span>ULTIMATE</span><small>HP: 2 / TIME: 60s</small>
+      </button>
+      <button class="diff-btn inf" data-diff="inf">
+        <span>INFERNO</span><small>HP: 1 / TIME: 60s</small>
+      </button>
+    </div>
+
+    <div class="controls-hint">
+      移動: <span>WASD</span> または <span>矢印キー</span><br>
+      精密回避: <span>Shift長押し</span>
+    </div>
+    
+    <button id="start-btn" class="start-btn">GAME START</button>
+  </div>
+</div>
+
+<script>
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const ui = document.getElementById('ui');
+  const startBtn = document.getElementById('start-btn');
+  const uiTitle = document.getElementById('ui-title');
+  const container = document.getElementById('game-container');
+  const diffBtns = document.querySelectorAll('.diff-btn');
+
+  // 各難易度の生存時間・初期HP・パラメータ
+  const DIFF_CONFIG = {
+    easy: { name: 'EASY', playerHp: 5, targetTime: 30, speedMult: 0.65, densityMult: 0.65 },
+    adv:  { name: 'ADVANCED', playerHp: 3, targetTime: 40, speedMult: 0.85, densityMult: 0.9 },
+    exp:  { name: 'EXPERT', playerHp: 3, targetTime: 50, speedMult: 1.1, densityMult: 1.3 },
+    ult:  { name: 'ULTIMATE', playerHp: 2, targetTime: 60, speedMult: 1.25, densityMult: 1.5 },
+    inf:  { name: 'INFERNO', playerHp: 1, targetTime: 60, speedMult: 1.45, densityMult: 2.8 }
+  };
+
+  let selectedDiff = 'easy';
+  let isPlaying = false;
+  
+  const keys = {};
+  window.addEventListener('keydown', e => { keys[e.code] = true; });
+  window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+  let player, boss, bullets, frameCount, startTime, elapsedTime;
+
+  diffBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      diffBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedDiff = btn.dataset.diff;
+    });
+  });
+
+  function initGame() {
+    const config = DIFF_CONFIG[selectedDiff];
+    
+    player = {
+      x: canvas.width / 2,
+      y: 520,
+      speed: 4.5,
+      slowSpeed: 2.0,
+      radius: 2.2,
+      grazeRadius: 18,
+      hp: config.playerHp,
+      maxHp: config.playerHp,
+      invincible: 0
+    };
+
+    boss = {
+      x: canvas.width / 2,
+      y: 110,
+      targetX: canvas.width / 2,
+      radius: 24,
+      angle: 0
+    };
+
+    bullets = [];
+    frameCount = 0;
+    startTime = 0;
+    elapsedTime = 0;
+  }
+
+  // ----------------------------------------------------
+  // 時間経過に応じた弾幕生成パターン
+  // ----------------------------------------------------
+  function updateBossAttacks(config) {
+    frameCount++;
+    
+    const progress = elapsedTime / config.targetTime; // 0.0 ～ 1.0 の進行度
+    const isInf = (selectedDiff === 'inf');
+    
+    // 時間経過の進行度（割合）でフェーズ判定
+    let phase = 1;
+    if (progress >= 0.65) { phase = 3; }      // 65%経過〜: FINAL PHASE（発狂）
+    else if (progress >= 0.30) { phase = 2; } // 30%経過〜: PHASE 2（複合）
+
+    // 5秒ごとにメイン技が入れ替わる
+    const pattern = Math.floor(elapsedTime / 5) % 4;
+
+    // 回転方向の可変
+    const rotSpeed = (pattern % 2 === 0) ? 0.04 : -0.04;
+    boss.angle += rotSpeed;
+
+    // ボスのスムーズなゆらゆら移動
+    if (frameCount % 80 === 0) {
+      boss.targetX = 80 + Math.random() * (canvas.width - 160);
+    }
+    boss.x += (boss.targetX - boss.x) * 0.04;
+
+    const spd = config.speedMult;
+    const den = config.densityMult;
+
+    // --- メイン技 1: 連続パルスリング（シアン） ---
+    if (pattern === 0 || isInf) {
+      const burstInterval = Math.max(30, Math.floor(70 / den));
+      const subFrame = frameCount % burstInterval;
+      if (subFrame < (isInf ? 24 : 12) && subFrame % 3 === 0) {
+        const ringCount = Math.floor(16 * den);
+        const ringOffset = (subFrame / 3) * 0.15;
+        for (let i = 0; i < ringCount; i++) {
+          const a = (Math.PI * 2 / ringCount) * i + ringOffset + boss.angle;
+          bullets.push({
+            x: boss.x, y: boss.y,
+            vx: Math.cos(a) * 2.4 * spd, vy: Math.sin(a) * 2.4 * spd,
+            radius: 3.5, color: '#00ffcc'
+          });
+        }
+      }
+    }
+
+    // --- メイン技 2: スパイラル渦巻き（ピンク） ---
+    if (pattern === 1 || isInf) {
+      const interval = Math.max(1, Math.floor(5 / den));
+      if (frameCount % interval === 0) {
+        const dual = (phase >= 2 || isInf);
+        const arms = dual ? 4 : 2;
+        for (let i = 0; i < arms; i++) {
+          const a = (i % 2 === 0 ? boss.angle : -boss.angle) + (i * (Math.PI * 2 / arms));
+          bullets.push({
+            x: boss.x, y: boss.y,
+            vx: Math.cos(a) * 2.6 * spd, vy: Math.sin(a) * 2.6 * spd,
+            radius: 3.5, color: '#ff0055'
+          });
+        }
+      }
+    }
+
+    // --- メイン技 3: 自機狙い WAY弾（イエロー） ---
+    if (pattern === 2 || isInf) {
+      const interval = Math.max(15, Math.floor(38 / den));
+      if (frameCount % interval === 0) {
+        const angleToPlayer = Math.atan2(player.y - boss.y, player.x - boss.x);
+        const wayCount = Math.floor(6 * den);
+        const spread = 0.20;
+        for (let i = 0; i < wayCount; i++) {
+          const a = angleToPlayer + (i - (wayCount - 1) / 2) * spread;
+          bullets.push({
+            x: boss.x, y: boss.y,
+            vx: Math.cos(a) * 3.4 * spd, vy: Math.sin(a) * 3.4 * spd,
+            radius: 3, color: '#ffee00'
+          });
+        }
+      }
+    }
+
+    // --- メイン技 4: 交差クロスレイン（パープル） ---
+    if (pattern === 3 || isInf) {
+      const interval = Math.max(1, Math.floor(6 / den));
+      if (frameCount % interval === 0) {
+        bullets.push({
+          x: Math.random() * canvas.width, y: 0,
+          vx: (Math.random() - 0.5) * 1.5,
+          vy: (2.0 + Math.random() * 1.8) * spd,
+          radius: 3, color: '#aa00ff'
+        });
+      }
+    }
+
+    // --- フェーズ別 サブ重なり攻撃 ---
+    // Phase 2 (経過30%〜): 自機狙い弾が定期発生
+    if (phase === 2 && pattern !== 2 && frameCount % 60 === 0) {
+      const angleToPlayer = Math.atan2(player.y - boss.y, player.x - boss.x);
+      bullets.push({
+        x: boss.x, y: boss.y,
+        vx: Math.cos(angleToPlayer) * 3.2 * spd, vy: Math.sin(angleToPlayer) * 3.2 * spd,
+        radius: 4, color: '#ffee00'
+      });
+    }
+
+    // Phase 3 (経過65%〜): 発狂全方位爆発（マゼンタ）追加
+    if ((phase === 3 || isInf) && frameCount % 65 === 0) {
+      const count = Math.floor(14 * den);
+      for (let i = 0; i < count; i++) {
+        const a = (Math.PI * 2 / count) * i + (boss.angle * 0.5);
+        bullets.push({
+          x: boss.x, y: boss.y,
+          vx: Math.cos(a) * 1.8 * spd, vy: Math.sin(a) * 1.8 * spd,
+          radius: 4.5, color: '#ff00aa'
+        });
+      }
+    }
+  }
+
+  // ----------------------------------------------------
+  // メイン描画ループ
+  // ----------------------------------------------------
+  function gameLoop(timestamp) {
+    if (!isPlaying) return;
+
+    if (!startTime) startTime = timestamp;
+    elapsedTime = (timestamp - startTime) / 1000;
+    const config = DIFF_CONFIG[selectedDiff];
+    const remainingTime = Math.max(0, config.targetTime - elapsedTime);
+
+    // 生存時間達成でクリア！
+    if (remainingTime <= 0) {
+      gameWin();
+      return;
+    }
+
+    // 1. 移動処理 (WASD / 矢印キー)
+    const isSlow = keys['ShiftLeft'] || keys['ShiftRight'];
+    const moveSpd = isSlow ? player.slowSpeed : player.speed;
+
+    if (keys['KeyW'] || keys['ArrowUp']) player.y -= moveSpd;
+    if (keys['KeyS'] || keys['ArrowDown']) player.y += moveSpd;
+    if (keys['KeyA'] || keys['ArrowLeft']) player.x -= moveSpd;
+    if (keys['KeyD'] || keys['ArrowRight']) player.x += moveSpd;
+
+    player.x = Math.max(10, Math.min(canvas.width - 10, player.x));
+    player.y = Math.max(10, Math.min(canvas.height - 10, player.y));
+
+    if (player.invincible > 0) player.invincible--;
+
+    // 2. 画面クリア
+    ctx.fillStyle = '#080810';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 背景グリッド
+    ctx.strokeStyle = '#121220';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < canvas.width; x += 40) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+    }
+    for (let y = 0; y < canvas.height; y += 40) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+    }
+
+    // 3. ボス＆弾幕生成
+    updateBossAttacks(config);
+
+    ctx.beginPath();
+    ctx.arc(boss.x, boss.y, boss.radius, 0, Math.PI * 2);
+    ctx.fillStyle = (selectedDiff === 'inf') ? '#ff00ff' : '#ff0055';
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = (selectedDiff === 'inf') ? '#ff00ff' : '#ff0055';
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // 4. 敵弾更新 & 被弾判定
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      let b = bullets[i];
+      b.x += b.vx;
+      b.y += b.vy;
+
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+      ctx.fillStyle = b.color;
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = b.color;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      if (b.x < -20 || b.x > canvas.width + 20 || b.y < -20 || b.y > canvas.height + 20) {
+        bullets.splice(i, 1);
+        continue;
+      }
+
+      if (player.invincible === 0) {
+        const dist = Math.hypot(player.x - b.x, player.y - b.y);
+        if (dist < player.radius + b.radius) {
+          player.hp -= 1;
+          player.invincible = 60; // 1秒無敵
+          container.classList.add('shake');
+          setTimeout(() => container.classList.remove('shake'), 250);
+
+          if (player.hp <= 0) {
+            gameOver();
+            return;
+          }
+        }
+      }
+    }
+
+    // 5. プレイヤー描画
+    if (player.invincible % 6 < 3) {
+      if (isSlow) {
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.grazeRadius, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(0, 255, 204, 0.3)';
+        ctx.stroke();
+      }
+
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, 8, 0, Math.PI * 2);
+      ctx.strokeStyle = '#00ffcc';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#00ffcc';
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    // 6. HUD UI表示
+    const progress = elapsedTime / config.targetTime;
+    const timeRatio = Math.max(0, remainingTime / config.targetTime);
+    
+    let phaseText = 'PHASE 1';
+    let timeBarColor = '#00ffcc';
+    if (progress >= 0.65) { phaseText = 'FINAL PHASE'; timeBarColor = '#ff0055'; }
+    else if (progress >= 0.30) { phaseText = 'PHASE 2'; timeBarColor = '#ffee00'; }
+
+    // カウントダウンバー（画面上部）
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.fillRect(20, 16, canvas.width - 40, 8);
+    ctx.fillStyle = (selectedDiff === 'inf') ? '#ff00ff' : timeBarColor;
+    ctx.fillRect(20, 16, (canvas.width - 40) * timeRatio, 8);
+
+    // 残りHP
+    ctx.fillStyle = '#00ffcc';
+    ctx.font = '12px monospace';
+    let hpStr = 'HP: ';
+    for (let i = 0; i < player.hp; i++) hpStr += '◆ ';
+    ctx.fillText(hpStr, 20, 42);
+
+    // 難易度 & カウントダウンテキスト
+    ctx.fillStyle = '#8888aa';
+    ctx.fillText(`${config.name} | ${phaseText}`, canvas.width - 160, 42);
+    ctx.fillText(`BULLETS: ${bullets.length}`, 20, canvas.height - 15);
+    
+    // 大文字カウントダウン
+    ctx.fillStyle = timeBarColor;
+    ctx.font = 'bold 14px monospace';
+    ctx.fillText(`TIME: ${remainingTime.toFixed(1)}s`, canvas.width - 110, canvas.height - 15);
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  function startGame() {
+    initGame();
+    isPlaying = true;
+    ui.classList.add('hidden');
+    requestAnimationFrame(gameLoop);
+  }
+
+  function gameWin() {
+    isPlaying = false;
+    uiTitle.textContent = 'SURVIVED!';
+    uiTitle.className = 'result-title clear';
+    document.querySelector('.sub-title').textContent = `SURVIVED FULL ${DIFF_CONFIG[selectedDiff].targetTime}s IN ${DIFF_CONFIG[selectedDiff].name}!`;
+    startBtn.textContent = 'PLAY AGAIN';
+    ui.classList.remove('hidden');
+  }
+
+  function gameOver() {
+    isPlaying = false;
+    uiTitle.textContent = 'GAME OVER';
+    uiTitle.className = 'result-title failed';
+    const config = DIFF_CONFIG[selectedDiff];
+    const survivedTime = (elapsedTime).toFixed(1);
+    document.querySelector('.sub-title').textContent = `SURVIVED: ${survivedTime}s / ${config.targetTime}s`;
+    startBtn.textContent = 'RETRY';
+    ui.classList.remove('hidden');
+  }
+
+  startBtn.addEventListener('click', startGame);
+</script>
+
+</body>
+</html>
